@@ -6,14 +6,14 @@ struct Node<T> {
     prev: *mut Node<T>
 }
 
-pub struct LinkedList<T: Default> {
+pub struct LinkedList<T: Default + PartialEq> {
     nodes: Vec<Box<Node<T>>>,
     head: *mut Node<T>,
     tail: *mut Node<T>,
     length: usize
 }
 
-impl<T: Default> LinkedList<T> {
+impl<T: Default + PartialEq> LinkedList<T> {
     pub fn new() -> Self {
         LinkedList::<T> {
             nodes: vec![],
@@ -120,20 +120,34 @@ impl<T: Default> LinkedList<T> {
     }
 
     pub fn front(&self) -> Option<&T> {
-        if self.head == std::ptr::null_mut() {
-            return None;
+        if let Some(f) = self.front_mut() {
+            return Some(f);
         }
-        unsafe {
-            Some(&(*self.head).value)
-        }
+        None
     }
 
     pub fn back(&self) -> Option<&T> {
+        if let Some(b) = self.back_mut() {
+            return Some(b);
+        }
+        None
+    }
+
+    pub fn back_mut(&self) -> Option<&mut T> {
         if self.tail == std::ptr::null_mut() {
             return None;
         }
         unsafe {
-            Some(&(*self.tail).value)
+            Some(&mut (*self.tail).value)
+        }
+    }
+
+    pub fn front_mut(&self) -> Option<&mut T> {
+        if self.head == std::ptr::null_mut() {
+            return None;
+        }
+        unsafe {
+            Some(&mut (*self.head).value)
         }
     }
 
@@ -180,20 +194,63 @@ impl<T: Default> LinkedList<T> {
         ret
     }
 
-    pub fn remove<F>(&mut self, pred: F) -> Option<T>
-        where F: Fn(&T) -> bool
-    {
-        self.remove_impl(&pred)
-    }
-
     pub fn remove_all<F>(&mut self, pred: F)
         where F: Fn(&T) -> bool
     {
         while self.remove_impl(&pred).is_some() {}
     }
 
+    pub fn remove_element(&mut self, element: &T) -> Option<T> {
+        self.remove_impl(|x| x == element)
+    }
+
+    pub fn element_position(&self, element: &T) -> Option<usize> {
+        let mut index = 0;
+        for i in self.iter() {
+            if i == element {
+                return Some(index);
+            }
+            index += 1;
+        }
+        None
+    }
+
+    pub fn insert(&mut self, index: usize, element: T) {
+        if index == 0 {
+            self.push_front(element);
+            return;
+        }
+        if index == self.length {
+            self.push_back(element);
+            return;
+        }
+        let mut ptr = self.head;
+        for _ in 0..index {
+            unsafe {
+                ptr = (*ptr).next;
+            }
+        }
+        let mut nod;
+        unsafe {
+            nod = Box::new(Node::<T>{
+                value: element,
+                next: ptr,
+                prev: (*ptr).prev
+            });
+            let nod_ptr = &mut *nod as *mut Node<T>;
+            (*(*ptr).prev).next = nod_ptr;
+            (*ptr).prev = nod_ptr;
+        }
+        self.nodes.push(nod);
+        self.length += 1;
+    }
+
     pub fn len(&self) -> usize {
         self.length
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.length == 0
     }
 
     pub fn iter(&self) -> LinkedListIterator<T> {
@@ -378,33 +435,6 @@ mod tests {
     }
 
     #[test]
-    fn test_remove() {
-        let mut list = LinkedList::<i32>::new();
-        list.push_back(1);
-        list.push_back(2);
-        list.push_back(3);
-        list.push_back(4);
-        list.remove(|x| *x == 2);
-        let mut iter = list.iter();
-        assert_eq!(iter.next(), Some(&1));
-        assert_eq!(iter.next(), Some(&3));
-        assert_eq!(iter.next(), Some(&4));
-
-        list.remove(|x| *x == 1);
-        let mut iter = list.iter();
-        assert_eq!(iter.next(), Some(&3));
-        assert_eq!(iter.next(), Some(&4));
-
-        list.remove(|x| *x == 4);
-        let mut iter = list.iter();
-        assert_eq!(iter.next(), Some(&3));
-
-        list.remove(|x| *x == 3);
-        let mut iter = list.iter();
-        assert_eq!(iter.next(), None);
-    }
-
-    #[test]
     fn test_remove_all() {
         let mut list = LinkedList::<i32>::new();
         list.push_back(1);
@@ -425,5 +455,68 @@ mod tests {
         assert_eq!(iter.next(), Some(&7));
         assert_eq!(iter.next(), Some(&9));
         assert_eq!(iter.next(), None);
+    }
+
+    #[test]
+    fn test_remove_element() {
+        let mut list = LinkedList::<i32>::new();
+        list.push_back(1);
+        list.push_back(2);
+        list.push_back(3);
+        list.push_back(4);
+        list.remove_element(&2);
+        let mut iter = list.iter();
+        assert_eq!(iter.next(), Some(&1));
+        assert_eq!(iter.next(), Some(&3));
+        assert_eq!(iter.next(), Some(&4));
+        assert_eq!(iter.next(), None);
+
+        list.remove_element(&1);
+        let mut iter = list.iter();
+        assert_eq!(iter.next(), Some(&3));
+        assert_eq!(iter.next(), Some(&4));
+        assert_eq!(iter.next(), None);
+
+        list.remove_element(&4);
+        let mut iter = list.iter();
+        assert_eq!(iter.next(), Some(&3));
+        assert_eq!(iter.next(), None);
+
+        list.remove_element(&3);
+        let mut iter = list.iter();
+        assert_eq!(iter.next(), None);
+    }
+
+    #[test]
+    fn test_insert() {
+        let mut list = LinkedList::<i32>::new();
+        list.push_back(1);
+        list.push_back(2);
+        list.push_back(3);
+        list.insert(1, 4);
+        let mut iter = list.iter();
+        assert_eq!(iter.next(), Some(&1));
+        assert_eq!(iter.next(), Some(&4));
+        assert_eq!(iter.next(), Some(&2));
+        assert_eq!(iter.next(), Some(&3));
+        assert_eq!(iter.next(), None);
+
+        list.insert(0, 5);
+        let mut iter = list.iter();
+        assert_eq!(iter.next(), Some(&5));
+        assert_eq!(iter.next(), Some(&1));
+        assert_eq!(iter.next(), Some(&4));
+        assert_eq!(iter.next(), Some(&2));
+        assert_eq!(iter.next(), Some(&3));
+        assert_eq!(iter.next(), None);
+
+        list.insert(5, 6);
+        let mut iter = list.iter();
+        assert_eq!(iter.next(), Some(&5));
+        assert_eq!(iter.next(), Some(&1));
+        assert_eq!(iter.next(), Some(&4));
+        assert_eq!(iter.next(), Some(&2));
+        assert_eq!(iter.next(), Some(&3));
+        assert_eq!(iter.next(), Some(&6));
     }
 }

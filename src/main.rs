@@ -34,7 +34,7 @@ fn main() {
         println!("{}", i);
     }
 
-    list.remove(|&e| e == 3);
+    list.remove_all(|&e| e == 3);
 
     println!("List contains after remove:");
 
