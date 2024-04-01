@@ -13,6 +13,12 @@ pub struct LinkedList<T: Default + PartialEq> {
     length: usize
 }
 
+impl<T: Default + PartialEq> Default for LinkedList<T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<T: Default + PartialEq> LinkedList<T> {
     pub fn new() -> Self {
         LinkedList::<T> {
@@ -31,11 +37,11 @@ impl<T: Default + PartialEq> LinkedList<T> {
         });
         let nod_ptr = &mut *nod as *mut Node<T>;
         unsafe {
-            if self.tail != std::ptr::null_mut() {
+            if !self.tail.is_null() {
                 (*self.tail).next = nod_ptr;
             }
         }
-        if self.head == std::ptr::null_mut() {
+        if self.head.is_null() {
             self.head = nod_ptr;
         }
         self.tail = nod_ptr;
@@ -51,11 +57,11 @@ impl<T: Default + PartialEq> LinkedList<T> {
         });
         let nod_ptr = &mut *nod as *mut Node<T>;
         unsafe {
-            if  self.head != std::ptr::null_mut() {
+            if ! self.head.is_null() {
                 (*self.head).prev = nod_ptr;
             }
         }
-        if self.tail == std::ptr::null_mut() {
+        if self.tail.is_null() {
             self.tail = nod_ptr;
         }
         self.head = nod_ptr;
@@ -64,14 +70,14 @@ impl<T: Default + PartialEq> LinkedList<T> {
     }
 
     pub fn pop_back(&mut self) -> Option<T> {
-        if self.tail == std::ptr::null_mut() {
+        if self.tail.is_null() {
             assert!(self.length == 0);
             return None;
         }
         let ret;
         let del_ptr;
         unsafe {
-            if (*self.tail).prev != std::ptr::null_mut() {
+            if !(*self.tail).prev.is_null() {
                 (*(*self.tail).prev).next = std::ptr::null_mut();
             }
             ret = Some(std::mem::take(&mut (*self.tail).value));
@@ -92,14 +98,14 @@ impl<T: Default + PartialEq> LinkedList<T> {
     }
 
     pub fn pop_front(&mut self) -> Option<T> {
-        if self.head == std::ptr::null_mut() {
+        if self.head.is_null() {
             assert!(self.length == 0);
             return None;
         }
         let ret;
         let del_ptr;
         unsafe {
-            if (*self.head).next != std::ptr::null_mut() {
+            if !(*self.head).next.is_null() {
                 (*(*self.head).next).prev = std::ptr::null_mut();
             }
             ret = Some(std::mem::take(&mut (*self.head).value));
@@ -134,7 +140,7 @@ impl<T: Default + PartialEq> LinkedList<T> {
     }
 
     pub fn back_mut(&self) -> Option<&mut T> {
-        if self.tail == std::ptr::null_mut() {
+        if self.tail.is_null() {
             return None;
         }
         unsafe {
@@ -143,7 +149,7 @@ impl<T: Default + PartialEq> LinkedList<T> {
     }
 
     pub fn front_mut(&self) -> Option<&mut T> {
-        if self.head == std::ptr::null_mut() {
+        if self.head.is_null() {
             return None;
         }
         unsafe {
@@ -162,12 +168,12 @@ impl<T: Default + PartialEq> LinkedList<T> {
         let mut ret: Option<T> = None;
 
         unsafe {
-            while ptr != std::ptr::null_mut() && !pred(&(*ptr).value) {
+            while !ptr.is_null() && !pred(&(*ptr).value) {
                 ptr = (*ptr).next;
             }
         }
 
-        if ptr == std::ptr::null_mut() {
+        if ptr.is_null() {
             return ret;
         }
 
@@ -179,10 +185,10 @@ impl<T: Default + PartialEq> LinkedList<T> {
         }
         else {
             unsafe {
-                if (*ptr).prev != std::ptr::null_mut() {
+                if !(*ptr).prev.is_null() {
                     (*(*ptr).prev).next = (*ptr).next;
                 }
-                if (*ptr).next != std::ptr::null_mut() {
+                if !(*ptr).next.is_null() {
                     (*(*ptr).next).prev = (*ptr).prev;
                 }
                 ret = Some(std::mem::take(&mut (*ptr).value));
@@ -205,12 +211,10 @@ impl<T: Default + PartialEq> LinkedList<T> {
     }
 
     pub fn element_position(&self, element: &T) -> Option<usize> {
-        let mut index = 0;
-        for i in self.iter() {
+        for (index, i) in self.iter().enumerate() {
             if i == element {
                 return Some(index);
             }
-            index += 1;
         }
         None
     }
@@ -277,7 +281,7 @@ impl<'a, T: Default> Iterator for LinkedListIterator<'a, T> {
     type Item = &'a T;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.node == std::ptr::null_mut() {
+        if self.node.is_null() {
             return None;
         }
         unsafe {
@@ -297,7 +301,7 @@ impl<'a, T: Default> Iterator for LinkedListIteratorMut<'a, T> {
     type Item = &'a mut T;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.node == std::ptr::null_mut() {
+        if self.node.is_null() {
             return None;
         }
         unsafe {
